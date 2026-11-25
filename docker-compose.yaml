@@ -1,2 +1,16 @@
+services:
+  server:
+    build: .
+    container_name: typerace-server
+    command: ["server", "--tcp-port", "5000", "--udp-port", "5001"]
+    ports:
+      - "5000:5000/tcp"
+      - "5001:5001/udp"
 
-  
+  client:
+    build: .
+    command: ["client", "--host", "server", "--tcp-port", "5000", "--udp-port", "5001", "--room", "room-1", "--user", "Player1"]
+    depends_on:
+      - server
+    stdin_open: true
+    tty: true
