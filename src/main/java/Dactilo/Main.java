@@ -1,27 +1,25 @@
 package Dactilo;
-import Dactilo.Client.*;
-import Dactilo.Server.*;
-import java.io.File;
+
+import Dactilo.Client.Client;
+import Dactilo.Server.Server;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 
-@CommandLine.Command(
-        name = "Dactilo-CHD-RMV",
-        description = "Dactylo_Race",
-        version = "1.0",
-        showDefaultValues = true,
-        subcommands = {
-        },
-        scope = CommandLine.ScopeType.INHERIT,
-        mixinStandardHelpOptions = true)
-public class Main {
+@Command(
+        name = "dactilo",
+        mixinStandardHelpOptions = true,
+        version = "Dactilo 1.0",
+        subcommands = { Server.class, Client.class }
+)
+public class Main implements Runnable {
 
-    static void main(String[] args) {
-        String jarFilename =
-                new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath())
-                        .getName();
-
-        int exitCode = new CommandLine(new Main()).setCommandName(jarFilename).execute(args);
-
+    public static void main(String[] args) {
+        int exitCode = new CommandLine(new Main()).execute(args);
         System.exit(exitCode);
+    }
+
+    @Override
+    public void run() {
+        CommandLine.usage(this, System.out);
     }
 }
