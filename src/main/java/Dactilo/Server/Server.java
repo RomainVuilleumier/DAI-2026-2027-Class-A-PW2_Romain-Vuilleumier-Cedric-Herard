@@ -9,19 +9,38 @@ import java.util.concurrent.Executors;
 public class Server {
 
         private static final int PORT = 1234;
+        private static final int MAX_NB_CLIENT = 100;
+        private static final int MAX_NB_CLIENT_IN_A_GAME = 10;
 
         public static void main(String[] args) {
                 try (ServerSocket serverSocket = new ServerSocket(PORT);
-                     ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor(); ) {
+                     ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_CLIENT);
+                     ExecutorService executorGAME = Executors.newFixedThreadPool(MAX_NB_CLIENT/MAX_NB_CLIENT_IN_A_GAME)) {
                         System.out.println("[Server] starting with id ");
                         System.out.println("[Server] listening on port " + PORT);
 
                         while (!serverSocket.isClosed()) {
-                                Socket clientSocket = serverSocket.accept();
-                                executor.submit(new ClientHandler(clientSocket));
+                                GameData gameData = new GameData(goal);
+                                for (int client = 0; client<MAX_NB_CLIENT_IN_A_GAME && !serverSocket.isClosed(); client++){
+                                        Socket clientSocket = serverSocket.accept();
+                                        executorClient.submit(new ClientHandler(clientSocket, gameData, client));
+                                }
                         }
                 } catch (IOException e) {
                         System.out.println("[Server] exception: " + e);
+                }
+        }
+
+        static class GameHandler implements Runnable{
+                private GameData data;
+
+                public GameHandler(GameData data) {
+                        this.data = data;
+                }
+
+                @Override
+                public void run(){
+                        //game management
                 }
         }
 
@@ -29,7 +48,7 @@ public class Server {
 
                 private final Socket socket;
 
-                public ClientHandler(Socket socket) {
+                public ClientHandler(Socket socket, GameData data,int gamer_id) {
                         this.socket = socket;
                 }
 
@@ -72,3 +91,4 @@ public class Server {
                 }
         }
 }
+
