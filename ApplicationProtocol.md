@@ -1,7 +1,7 @@
 # Application Protocol
 
 ## Description
-This application is a speed typing competition between multiple users. Each user, after having asked to join, gets placed in a game lobby automatically generated and managed. When the game starts, the users will be prompted with a text they will have to send back the server. After each game, every connection is broken and the clients will have to ask again to join a game again.
+This application is a speed typing competition between multiple users. Each user, after having asked to join, gets placed in a game lobby automatically generated and managed. When the game starts, the users will be prompted with a text they will have to send back the server. After each game, the clients will have to ask again to join a game again.
 
 ## Communications
 ### Transport protocol, port and encoding
@@ -126,15 +126,12 @@ sequenceDiagram
 sequenceDiagram
     Client1->>Server: COMMIT help me
     Server-->>Client1:ERROR 3
-    Server-->Client1 : (connection cut)
     Client1->>Server: JOIN
     Server-->>Client1:OK
     Client2->>Server: JON
     Server-->>Client2:ERROR 1
-    Server-->Client2 : (connection cut)
     Client2->>Server: JOIN 1
     Server-->>Client2:ERROR 2
-    Server-->Client2 : (connection cut)
     Client2->>Server: JOIN
     Server-->>Client2:OK
     Server->>Client1 :Start Hey jude, don't make it bad
