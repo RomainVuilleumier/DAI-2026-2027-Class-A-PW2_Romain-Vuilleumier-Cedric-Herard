@@ -1,7 +1,7 @@
 package Dactilo;
 
-import Dactilo.Client.Client;
-import Dactilo.Server.Server;
+import Dactilo.Client.ClientCmds;
+import Dactilo.Server.ServerCmds;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -9,7 +9,7 @@ import picocli.CommandLine.Command;
         name = "dactilo",
         mixinStandardHelpOptions = true,
         version = "Dactilo 1.0",
-        subcommands = { Server.class, Client.class }
+        subcommands = { ServerCmds.class, ClientCmds.class }
 )
 public class Main implements Runnable {
 
