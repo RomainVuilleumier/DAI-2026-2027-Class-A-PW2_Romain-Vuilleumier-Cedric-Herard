@@ -12,6 +12,11 @@ public class Server {
         private static final int MAX_NB_LOBBIES = 20;
         private static final int MAX_NB_CLIENT_IN_A_GAME = 10;
 
+        private static final String NOT_A_COMMAND = "ERROR 1";
+        private static final String WRONG_FORMAT = "ERROR 2";
+        private static final String WRONG_MOMENT = "ERROR 3";
+        private static final String COMMAND_FAILED = "ERROR 4";
+
         public static void main(String[] args) {
                 try (ServerSocket serverSocket = new ServerSocket(PORT);
                      ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_LOBBIES*MAX_NB_CLIENT_IN_A_GAME);
@@ -19,8 +24,8 @@ public class Server {
                         System.out.println("[Server] starting with id ");
                         System.out.println("[Server] listening on port " + PORT);
                         for (int i = 0; i < MAX_NB_LOBBIES; i++){
-                                GameData gameData = new GameData(goal,MAX_NB_CLIENT_IN_A_GAME);
-                                executorGAME.submit(new GameHandler(gameData));
+                                //todo read from a file and get a string with getline
+                                new GameData("goal",MAX_NB_CLIENT_IN_A_GAME); //the creation places itself in the queue of games to be filled
                         }
                         while (!serverSocket.isClosed()) {
                                 Socket clientSocket = serverSocket.accept();
@@ -46,7 +51,7 @@ public class Server {
 
         static class ClientHandler implements Runnable {
                 private final Socket socket;
-                private GameData currentGame;
+                private SimplePair<Integer,GameData> currentGame;
 
                 public ClientHandler(Socket socket) {
                         this.socket = socket;
@@ -87,6 +92,24 @@ public class Server {
                                 System.out.println("[Server] closing connection");
                         } catch (IOException e) {
                                 System.out.println("[Server] exception: " + e);
+                        }
+                }
+                private String commandInterpreter(String[] parsedInput) throws Exception { //todo implement the cases
+                        switch (parsedInput[0]){
+                                case null : throw new Exception("No commands to be interpreted");
+                                case "JOIN":
+                                        if (parsedInput.length != 1){
+                                                return NOT_A_COMMAND;
+                                        }
+                                        else if (currentGame == null){
+                                                currentGame = GameData.findAndJoinGame();
+                                                if(currentGame == null){
+                                                        return COMMAND_FAILED;
+                                                }
+                                                return "OK";
+                                        }
+                                case "COMMIT":
+                                default:
                         }
                 }
         }

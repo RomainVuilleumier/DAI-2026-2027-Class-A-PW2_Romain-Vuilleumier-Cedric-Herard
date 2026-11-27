@@ -15,7 +15,6 @@ class GameData {
     AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
     AtomicInteger nextFinisherPlace = new AtomicInteger(1);
     static Lock mutex;
-
     final String goal;
 
     protected GameData(String goal, int maxNumberClient) {
@@ -24,6 +23,17 @@ class GameData {
         this.goal = goal;
         games.add(this);
     }
+
+    /*todo make the game logic
+
+        - game starts if one of the following is true
+            - every body is here
+            - a minium of 2 persons are in the game AND there is a time out (like 2 minutes)
+        - when someone gets his result, he leaves the game by putting his current game at null
+        - when every body has left OR if a timeout is called (like 5 minutes) the game kicks every body (set to null) and puts itself back in the queue (or create a new game with a new goal) //todo needs a pointer to every player to kick them
+
+     */
+
 
     /**
      *
@@ -59,17 +69,17 @@ class GameData {
      * @return
      * @throws Exception
      */
-     static protected GameData findAndJoinGame() throws Exception {
+     static protected SimplePair<Integer,GameData> findAndJoinGame() throws Exception {
         GameData result;
         mutex.lock(); //ensures that only one client tries to join a game at the exact same instant
         result = games.peek();
         if (result == null){
             return null;
         }
-        result.clientComes();
+        int index = result.clientComes();
         mutex.unlock();
-        return result;
-    }
+        return new SimplePair<>(index,result);
+     }
 
     /**
      *
