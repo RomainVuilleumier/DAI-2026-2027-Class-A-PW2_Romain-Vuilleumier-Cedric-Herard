@@ -9,23 +9,22 @@ import java.util.concurrent.Executors;
 public class Server {
 
         private static final int PORT = 1234;
-        private static final int MAX_NB_CLIENT = 100;
+        private static final int MAX_NB_LOBBIES = 20;
         private static final int MAX_NB_CLIENT_IN_A_GAME = 10;
 
         public static void main(String[] args) {
                 try (ServerSocket serverSocket = new ServerSocket(PORT);
-                     ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_CLIENT);
-                     ExecutorService executorGAME = Executors.newFixedThreadPool(MAX_NB_CLIENT/MAX_NB_CLIENT_IN_A_GAME)) {
+                     ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_LOBBIES*MAX_NB_CLIENT_IN_A_GAME);
+                     ExecutorService executorGAME = Executors.newFixedThreadPool(MAX_NB_LOBBIES)) {
                         System.out.println("[Server] starting with id ");
                         System.out.println("[Server] listening on port " + PORT);
-
-                        while (!serverSocket.isClosed()) {
-                                GameData gameData = new GameData(goal);
+                        for (int i = 0; i < MAX_NB_LOBBIES; i++){
+                                GameData gameData = new GameData(goal,MAX_NB_CLIENT_IN_A_GAME);
                                 executorGAME.submit(new GameHandler(gameData));
-                                for (int client = 0; client<MAX_NB_CLIENT_IN_A_GAME && !serverSocket.isClosed(); client++){
-                                        Socket clientSocket = serverSocket.accept();
-                                        executorClient.submit(new ClientHandler(clientSocket, gameData, client));
-                                }
+                        }
+                        while (!serverSocket.isClosed()) {
+                                Socket clientSocket = serverSocket.accept();
+                                executorClient.submit(new ClientHandler(clientSocket));
                         }
                 } catch (IOException e) {
                         System.out.println("[Server] exception: " + e);
@@ -46,10 +45,10 @@ public class Server {
         }
 
         static class ClientHandler implements Runnable {
-
                 private final Socket socket;
+                private GameData currentGame;
 
-                public ClientHandler(Socket socket, GameData data,int gamer_id) {
+                public ClientHandler(Socket socket) {
                         this.socket = socket;
                 }
 
