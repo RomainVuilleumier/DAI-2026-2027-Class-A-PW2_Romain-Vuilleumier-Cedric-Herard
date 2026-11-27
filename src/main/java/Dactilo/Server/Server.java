@@ -21,6 +21,7 @@ public class Server {
 
                         while (!serverSocket.isClosed()) {
                                 GameData gameData = new GameData(goal);
+                                executorGAME.submit(new GameHandler(gameData));
                                 for (int client = 0; client<MAX_NB_CLIENT_IN_A_GAME && !serverSocket.isClosed(); client++){
                                         Socket clientSocket = serverSocket.accept();
                                         executorClient.submit(new ClientHandler(clientSocket, gameData, client));
