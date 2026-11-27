@@ -33,7 +33,7 @@ The server will then send a `START` message with the text that the user will nee
 
 The client will then reply with a `COMMIT` message and the same text, in case the text is not the same, the server will send a `REDO` message until the client replies with a `COMMIT` with the right text.
 
-After verifying the text, if it is right the server will send a `RESULT` message with the time taken and the position in the game.
+After verifying the text, if it is right the server will send a `RESULT` message with the position of the client in the game.
 
 At any time after the connection, the client can close the connection to leave.
 
@@ -45,61 +45,99 @@ A specific error is reserved for command specific errors, it is `ERROR 4`.
 ### Types, format and responses of messages
 
 #### Join a game
+The client wants to join a game
 ##### Request
 ```
 JOIN
 ```
 ##### Responses
-- `ERROR 2`, "known command, wrong format/arguments, arguments were added"
-- `ERROR 3`, "known command, wrong moment, this client is already in a game lobby"
-- `ERROR 4`, "the server could not connect the client to a game, all the lobbies are full"
+- `ERROR 2`, known command, wrong format/arguments, arguments were added
+- `ERROR 3`, known command, wrong moment, this client is already in a game lobby
+- `ERROR 4`, the server could not connect the client to a game, all the lobbies are full
 - 'OK', the client joined a game successfully
 
 
-#### template
+#### Start
+The server starts the game by giving a text and the start signal.
 ##### Request
 ```
-template
+START <text>
 ```
+- `text`: text to be copied by the client
 ##### Responses
-- `ERROR 1`, unknown command
-- `ERROR 2`, known command, wrong format/arguments
-- `ERROR 3`, known command, wrong moment
+- `ERROR 2`, known command, wrong format/arguments, argument is lacking or do not match the UTF-8 encoding
+- `ERROR 3`, known command, wrong moment, the client did not expect this command
 
+#### Commit an answer
+The client commits an answer by sending the copied text and want the server to validate the result.
+##### Request
+```
+COMMIT <text>
+```
+- `text`: text copied by the client
+##### Responses
+- `ERROR 2`, known command, wrong format/arguments, no text given
+- `ERROR 3`, known command, wrong moment, the game has not started yet or the client did not join any game
+- `REDO`, The server expected another answer and the client needs to send another commit with the right text
+- `RESULT <position>`, the text was the right one
+
+#### Give the result
+The server gives the result of the game with the position of the player
+##### RESULT
+```
+RESULT <position>
+```
+- `position`: position that the player achieved
+##### Responses
+- `ERROR 2`, known command, wrong format/arguments, no argument given or too many arguments
+- `ERROR 3`, known command, wrong moment, the position was not a number
+
+
+#### Unknown or invalid message
+The server answers any message it cannot serve.
+
+##### Response
+- `ERROR 1`: the message is unknown, or a parameter is missing or invalid.
+- `ERROR 2`: known command, wrong format/arguments
+- `ERROR 3`: known command, wrong moment
+  The connection stays open in any cases.
 
 ### Global summary of the communication
 
 |Who sends|Type of message|List of arguments|Description|
 |:---:|:---:|:---:|:--|
 |Client|JOIN|-|Asks to join a game|
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
-|||||
+|Server|START|text|`text`, text to copy|
+|Client|COMMIT|text|`text`, text written|
+|Server|REDO|-|Retry, wrong text given|
+|Server|RESULT|position|`position`, position achieved in the game by the client|
 
 ## Examples
 ### Correctly made communications
 ```mermaid
 sequenceDiagram
-    Client->>Server: JOIN
-    Server-->>Client:OK
-    Server->>Client :Start Hey jude, don't make it bad
-    Client-->>Server:OK
-    Client->>Server :COMMIT Hey jude, don't make it wrongly
-    Client-->>Server:REDO
-    Client->>Server :COMMIT Hey jude, dont make it bad
-    Client-->>Server:REDO
-    Client->>Server :COMMIT Hey jude, don't make it bad any more
-    Client-->>Server:REDO
-    Client->>Server :COMMIT Hey jude, don't make it bad
-    Client-->>Server:RESULT 3 136
+    Client1->>Server: JOIN
+    Server-->>Client1:OK
+    Client2->>Server: JOIN
+    Server-->>Client2:OK
+    Server->>Client1 :Start Hey jude, don't make it bad
+    Server->>Client2 :Start Hey jude, don't make it bad
+    Client2->>Server :COMMIT Hey jude
+    Server-->>Client2:REDO
+    Client2->>Server :COMMIT Hey jude, dont
+    Server-->>Client2:REDO
+    Client1->>Server :COMMIT Hey jude, don't make it wrongly
+    Server-->>Client1:REDO
+    Client1->>Server :COMMIT Hey jude, dont make it bad
+    Server-->>Client1:REDO
+    Client1->>Server :COMMIT Hey jude, don't make it bad any more
+    Server-->>Client1:REDO
+    Client2->>Server :COMMIT Hey jude, don't make it badly
+    Server-->>Client2:REDO
+    Client1->>Server :COMMIT Hey jude, don't make it bad
+    Server-->>Client1:RESULT 1
+    Client2->>Server :COMMIT Hey jude, don't make it bad
+    Server-->>Client2:RESULT 2
 ```
 ### Wrongly made communications
 ```mermaid
