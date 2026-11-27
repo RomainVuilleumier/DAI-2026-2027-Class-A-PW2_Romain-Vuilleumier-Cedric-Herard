@@ -20,8 +20,7 @@ public class ClientCmd implements Runnable {
 
     @Override
     public void run() {
-        NetworkConfig config = new NetworkConfig();
         Client client = new Client();
-        client.start();
+        client.start(host,username);
     }
 }

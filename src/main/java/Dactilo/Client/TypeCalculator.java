@@ -27,9 +27,9 @@ public class TypeCalculator {
         reset();
     }
 
-    public boolean onCharTyped(char typedChar) {
+    public void onCharTyped(char typedChar) {
         if (isFinished() || targetText.isEmpty()) {
-            return false;
+            return;
         }
 
         if (startTimeNanos < 0L) {
@@ -52,7 +52,6 @@ public class TypeCalculator {
             endTimeNanos = System.nanoTime();
         }
 
-        return isCorrect;
     }
 
     public void onBackspace() {
@@ -70,6 +69,10 @@ public class TypeCalculator {
         this.correctKeystrokes = 0;
         this.currentIndex = 0;
         Arrays.fill(statuses, CharStatus.PENDING);
+    }
+
+    public String getTargetText() {
+        return targetText;
     }
 
     public CharStatus getStatusAt(int index) {
