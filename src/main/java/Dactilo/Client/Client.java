@@ -27,20 +27,18 @@ class Client {
                      new BufferedWriter(
                              new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)); ) {
             System.out.println("[Client " + PSEUDO + "] connected to " + HOST + ":" + PORT);
-            System.out.println(
-                    "[Client "
-                            + PSEUDO
-                            + "] sending textual data to server "
-                            + HOST
-                            + ":"
-                            + PORT
-                            + ": "
-                            + data);
 
             while (!socket.isClosed()) {
                 Join(out);
                 answer = in.readLine();
                 AnswerToJoin(answer,out,in);
+                answer = in.readLine();
+
+                if (answer == null || !answer.startsWith("START ")) {
+                    throw new Exception("Expected START message");
+                }
+
+                System.out.println("Game started: " + answer);
                 Commit(out,getCommitAnswer());
                 answer = in.readLine();
                 int pos = AnswerToCommit(answer,out,in);
