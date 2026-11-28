@@ -12,8 +12,11 @@ public class TypeCalculator {
      * État de validation d'un caractère du texte cible.
      */
     public enum CharStatus {
+        /** Caractère pas encore atteint. */
         PENDING,
+        /** Caractère saisi correspondant au texte cible. */
         CORRECT,
+        /** Caractère saisi différent du texte cible. */
         WRONG
     }
 
