@@ -2,7 +2,7 @@ package Dactilo.Server;
 
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  *
@@ -15,7 +15,7 @@ class GameData {
     private AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
     private AtomicInteger nextFinisherPlace = new AtomicInteger(1);
     protected CyclicBarrier gate;//used to ensure that all threads gets notified by the start of the game
-    static Lock mutex;
+    static ReentrantLock mutex = new ReentrantLock();
     final String goal;
 
     protected GameData(String goal, int maxNumberClient) {
@@ -26,26 +26,30 @@ class GameData {
         games.add(this);
     }
 
-    /*todo make the game logic
-
-        - game starts if one of the following is true
-            - every body is here
-            //- a minium of 2 persons are in the game AND there is a time out (like 2 minutes)
-        - when someone gets his result, he leaves the game by putting his current game at null
-        - when every body has left OR if a timeout is called (like 5 minutes) the game kicks every body (set to null) and puts itself back in the queue (or create a new game with a new goal) //todo needs a pointer to every player to kick them
-
-     */
-
     void leaveGame(int clientId){
-        int remainingClients = nbClients.decrementAndGet();
+        mutex.lock();
+        if (clientId < 0 || clientId >= nbSlots) {
+            return;
+        }
+
+        if (clients.get(clientId) == 0) {
+            return;
+        }
+
         clients.set(clientId,0);
+
+        int remainingClients = nbClients.decrementAndGet();
+
         if (hasStarted.get() && remainingClients == 0){
             resetGame();
         }
+        mutex.unlock();
     }
 
     void resetGame(){
         gate.reset();
+        hasStarted.set(false);
+        nextFinisherPlace.set(1);
         games.add(this);
     }
 
@@ -55,12 +59,17 @@ class GameData {
      * @throws Exception
      */
     private int clientComes() throws Exception {
-        nbClients.incrementAndGet();
-        if (nbClients.get() == nbSlots && !hasStarted.get()){
+        mutex.lock();
+        int index = reserveFreeSlot();
+
+        int count = nbClients.incrementAndGet();
+
+        if (count == nbSlots && !hasStarted.get()) {
             games.remove(this);
             hasStarted.set(true);
         }
-        return reserveFreeSlot();
+        mutex.unlock();
+        return index;
     }
 
     /**
@@ -89,6 +98,7 @@ class GameData {
         mutex.lock(); //ensures that only one client tries to join a game at the exact same instant
         result = games.peek();
         if (result == null){
+            mutex.unlock();
             return null;
         }
         int index = result.clientComes();

@@ -11,7 +11,6 @@ class Client {
     private static final String HOST = "localhost";
     private static final int PORT = 1234;
     private static final String PSEUDO = "temp"; //todo take in the input of the command to display clearly in the terminal
-    private static Boolean shouldWait = false;
 
     public static void main(String args[]) {
         System.out.println("[Client " + PSEUDO + "] starting with pseudo " + PSEUDO);
@@ -68,6 +67,7 @@ class Client {
                             Join(out);
                             input = in.readLine();
                             AnswerToJoin(input, out, in);
+                            return;
                         default: throw new Exception("unExpected answer");
                     }
                 }
@@ -86,15 +86,22 @@ class Client {
                 input = in.readLine();
                 return AnswerToCommit(input, out, in);
             case "RESULT":
+                if (parsedInput.length == 1){
+                    throw new Exception("no position received");
+                }
                 return Integer.parseInt(parsedInput[1]);
             case "ERROR":
-                switch (parsedInput[1]){
-                    case "2":
-                        Commit(out,getCommitAnswer());
-                        input = in.readLine();
-                        return AnswerToCommit(input, out, in);
-                    case "3":
-                        throw new Exception("Tried to commit while not even in a game or having waited for it to start");
+                if (parsedInput.length == 1){
+                    throw new Exception("no ERROR code received");
+                } else {
+                    switch (parsedInput[1]) {
+                        case "2":
+                            Commit(out, getCommitAnswer());
+                            input = in.readLine();
+                            return AnswerToCommit(input, out, in);
+                        case "3":
+                            throw new Exception("Tried to commit while not even in a game or having waited for it to start");
+                    }
                 }
             default:
                 throw new Exception("Unknown command");

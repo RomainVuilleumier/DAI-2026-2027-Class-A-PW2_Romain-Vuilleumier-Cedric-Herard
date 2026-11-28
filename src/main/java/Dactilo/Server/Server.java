@@ -19,8 +19,7 @@ public class Server {
 
         public static void main(String[] args) {
                 try (ServerSocket serverSocket = new ServerSocket(PORT);
-                     ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_LOBBIES*MAX_NB_CLIENT_IN_A_GAME);
-                     ExecutorService executorGAME = Executors.newFixedThreadPool(MAX_NB_LOBBIES)) {
+                     ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_LOBBIES*MAX_NB_CLIENT_IN_A_GAME)) {
                         System.out.println("[Server] starting with id ");
                         System.out.println("[Server] listening on port " + PORT);
                         for (int i = 0; i < MAX_NB_LOBBIES; i++){
@@ -87,6 +86,11 @@ public class Server {
                                 System.out.println("[Server] closing connection");
                         } catch (Exception e) {
                                 System.out.println("[Server] exception: " + e);
+                        } finally {
+                                if (currentGame != null) {
+                                        currentGame.getSecond().leaveGame(currentGame.getFirst());
+                                        currentGame = null;
+                                }
                         }
                 }
                 private SimplePair<String,Boolean> commandInterpreter(String data, String expectedText) throws Exception {
