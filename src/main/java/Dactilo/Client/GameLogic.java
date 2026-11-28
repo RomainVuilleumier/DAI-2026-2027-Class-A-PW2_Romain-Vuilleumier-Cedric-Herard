@@ -82,7 +82,14 @@ public class GameLogic {
     public String getTypedText() {
         return keyHandler.getTypedText();
     }
-
+    /**
+     * Retourne le calculateur de statistiques associé à la manche courante.
+     *
+     * @return moteur {@link TypeCalculator}
+     */
+    public TypeCalculator getCalculator() {
+        return calculator;
+    }
     /**
      * Retourne l'instance de l'interface terminale associée à cette logique de jeu.
      *
