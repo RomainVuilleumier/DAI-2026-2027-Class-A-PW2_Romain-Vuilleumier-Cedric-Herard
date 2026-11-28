@@ -16,10 +16,10 @@ public class SimplePair <T,U>{
         this.second = second;
     }
 
-    T getFirst(){
+    public T getFirst(){
         return first;
     }
-    U getSecond(){
+    public U getSecond(){
         return second;
     }
 }

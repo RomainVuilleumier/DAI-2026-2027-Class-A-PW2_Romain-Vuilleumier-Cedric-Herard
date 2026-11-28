@@ -83,6 +83,10 @@ class GameData {
         return new SimplePair<>(index,result);
      }
 
+    /**
+     *
+     * @return
+     */
      protected int getPosition(){
          return nextFinisherPlace.getAndIncrement();
      }
