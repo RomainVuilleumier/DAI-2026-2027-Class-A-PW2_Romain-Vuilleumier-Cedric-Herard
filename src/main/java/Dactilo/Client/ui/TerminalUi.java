@@ -206,22 +206,22 @@ public class TerminalUi {
         int width = size.getColumns();
         int height = size.getRows();
 
-        TextGraphics g = screen.newTextGraphics();
-        g.setBackgroundColor(TextColor.ANSI.BLACK);
-        g.fill(' ');
+        TextGraphics graphics = screen.newTextGraphics();
+        graphics.setBackgroundColor(TextColor.ANSI.BLACK);
+        graphics.fill(' ');
 
         String header = String.format(" DACTILO | Salle: %s | Joueur: %s | [Echap] Quitter ",
                 roomName, localUsername);
-        g.setForegroundColor(TextColor.ANSI.CYAN);
-        g.putString(0, 0, truncate(header, width), SGR.BOLD);
+        graphics.setForegroundColor(TextColor.ANSI.CYAN);
+        graphics.putString(0, 0, truncate(header, width), SGR.BOLD);
 
-        g.setForegroundColor(TextColor.ANSI.YELLOW);
-        g.putString(2, 2, "Texte à taper :");
-        drawTargetText(g, 4, width - 4, 3);
+        graphics.setForegroundColor(TextColor.ANSI.YELLOW);
+        graphics.putString(2, 2, "Texte à taper :");
+        drawTargetText(graphics, 2,4, width - 4, 3);
 
-        g.setForegroundColor(TextColor.ANSI.YELLOW);
-        g.putString(2, 8, "Ta saisie :");
-        drawTypedInput(g, 10, width - 4);
+        graphics.setForegroundColor(TextColor.ANSI.YELLOW);
+        graphics.putString(2, 8, "Ta saisie :");
+        drawTypedInput(graphics, 2,10, width - 4);
 
         int statsRow = Math.max(12, height - 3);
         String stats = calculator.isFinished()
@@ -231,8 +231,8 @@ public class TerminalUi {
                 calculator.getWpm(), calculator.getAccuracyPercent(),
                 calculator.getProgressPercent(), calculator.getElapsedSeconds());
 
-        g.setForegroundColor(calculator.isFinished() ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE_BRIGHT);
-        g.putString(0, statsRow, truncate(stats, width), SGR.BOLD);
+        graphics.setForegroundColor(calculator.isFinished() ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE_BRIGHT);
+        graphics.putString(0, statsRow, truncate(stats, width), SGR.BOLD);
 
         screen.refresh();
     }
@@ -240,23 +240,24 @@ public class TerminalUi {
     /**
      * Affiche le texte cible en colorant chaque caractère selon son état (vert, rouge ou en attente).
      *
-     * @param g        contexte graphique Lanterna
+     * @param graphics        contexte graphique Lanterna
+     * @param startX    Colonne d'affichage de la saisie
      * @param startY   ligne de départ d'affichage
      * @param maxWidth largeur maximale disponible
      * @param maxRows  nombre de lignes maximal disponible
      */
-    private void drawTargetText(TextGraphics g, int startY, int maxWidth, int maxRows) {
+    private void drawTargetText(TextGraphics graphics,int startX, int startY, int maxWidth, int maxRows) {
         if (maxWidth <= 0 || maxRows <= 0) {
             return;
         }
 
         String text = calculator.getTargetText();
-        int x = 2;
+        int x = startX;
         int y = startY;
 
         for (int i = 0; i < text.length(); i++) {
-            if (x >= 2 + maxWidth) {
-                x = 2;
+            if (x >= startX + maxWidth) {
+                x = startX;
                 y++;
                 if (y >= startY + maxRows) {
                     break;
@@ -273,15 +274,15 @@ public class TerminalUi {
                 case PENDING -> TextColor.ANSI.WHITE;
             };
 
-            g.setForegroundColor(fg);
+            graphics.setForegroundColor(fg);
             String s = String.valueOf(ch);
             if (isCursor) {
-                g.putString(x, y, s, SGR.REVERSE);
+                graphics.putString(x, y, s, SGR.REVERSE);
             } else {
-                g.putString(x, y, s);
+                graphics.putString(x, y, s);
             }
-            g.setForegroundColor(fg);
-            g.putString(x, y, String.valueOf(ch));
+            graphics.setForegroundColor(fg);
+            graphics.putString(x, y, String.valueOf(ch));
             x++;
         }
     }
@@ -289,11 +290,12 @@ public class TerminalUi {
     /**
      * Affiche les caractères saisis par le joueur en vert si corrects et en rouge si faux.
      *
-     * @param g        contexte graphique Lanterna
-     * @param y        ligne d'affichage de la saisie
+     * @param graphics        contexte graphique Lanterna
+     * @param startX    Colonne d'affichage de la saisie
+     * @param startY    ligne d'affichage de la saisie
      * @param maxWidth largeur maximale disponible
      */
-    private void drawTypedInput(TextGraphics g, int y, int maxWidth) {
+    private void drawTypedInput(TextGraphics graphics,int startX, int startY, int maxWidth) {
         if (maxWidth <= 0) {
             return;
         }
@@ -306,15 +308,15 @@ public class TerminalUi {
             TypeCalculator.CharStatus status = i < calculator.getTargetText().length()
                     ? calculator.getStatusAt(i)
                     : TypeCalculator.CharStatus.WRONG;
-            g.setForegroundColor(status == TypeCalculator.CharStatus.CORRECT
+            graphics.setForegroundColor(status == TypeCalculator.CharStatus.CORRECT
                     ? TextColor.ANSI.GREEN
                     : TextColor.ANSI.RED);
-            g.putString(2 + i, y, String.valueOf(ch));
+            graphics.putString(startX + i, startY, String.valueOf(ch));
         }
 
         if (!calculator.isFinished() && limit < maxWidth) {
-            g.setForegroundColor(TextColor.ANSI.WHITE);
-            g.putString(2 + limit, y, " ", SGR.REVERSE);
+            graphics.setForegroundColor(TextColor.ANSI.WHITE);
+            graphics.putString(startX + limit, startY, " ", SGR.REVERSE);
         }
     }
 
