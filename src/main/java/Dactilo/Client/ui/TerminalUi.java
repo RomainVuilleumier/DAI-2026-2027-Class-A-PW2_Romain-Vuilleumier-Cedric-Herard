@@ -28,12 +28,26 @@ public class TerminalUi {
             " |____/ \\__,_|\\___|\\__|_|_|\\___/   \\____|_| |_|____(_)_| \\_\\_|  |_|  \\_/   "
     };
 
+    /**
+     * Phases d'affichage de l'interface.
+     */
     public enum GamePhase {
+        /** Écran d'attente avant le début de la partie. */
         Lobby,
+        /** Écran actif de course et de saisie. */
         Game,
+        /** Écran final affichant le résultat du joueur. */
         Finish
     }
 
+    /**
+     * Résultat final et classement du joueur local envoyés par le serveur.
+     *
+     * @param position        position finale du joueur (1 = premier)
+     * @param wpm             vitesse finale en mots par minute
+     * @param accuracyPercent précision finale en pourcentage
+     * @param elapsedSeconds  temps total en secondes
+     */
     public record LocalResult(int position, double wpm, double accuracyPercent, double elapsedSeconds) {
     }
 
@@ -49,28 +63,60 @@ public class TerminalUi {
     private Terminal terminal;
     private Screen screen;
 
+    /**
+     * Crée une instance de l'interface terminale.
+     *
+     * @param roomName      nom de la salle affiché dans l'en-tête (non nul)
+     * @param localUsername pseudo du joueur local (non nul)
+     * @param calculator    moteur de suivi et de calcul des statistiques de frappe (non nul)
+     */
     public TerminalUi(String roomName, String localUsername, TypeCalculator calculator) {
         this.roomName = Objects.requireNonNull(roomName);
         this.localUsername = Objects.requireNonNull(localUsername);
         this.calculator = Objects.requireNonNull(calculator);
     }
 
+    /**
+     * Associe le gestionnaire de touches utilisé pour traiter les entrées clavier.
+     *
+     * @param keyHandler gestionnaire de touches (non nul)
+     */
     public void setKeyHandler(KeyHandler keyHandler) {
         this.keyHandler = Objects.requireNonNull(keyHandler);
     }
 
+    /**
+     * Change la phase courante de l'interface ({@link GamePhase#Lobby}, {@link GamePhase#Game} ou {@link GamePhase#Finish}).
+     *
+     * @param newPhase nouvelle phase à afficher (non nulle)
+     */
     public void setPhase(GamePhase newPhase) {
         this.phase = Objects.requireNonNull(newPhase);
     }
 
+    /**
+     * Retourne la phase d'affichage courante.
+     *
+     * @return phase active
+     */
     public GamePhase getPhase() {
         return phase;
     }
 
+    /**
+     * Enregistre le résultat final et la position du joueur local reçus du serveur.
+     *
+     * @param result statistiques finales et rang du joueur local (non nul)
+     */
     public void setLocalResult(LocalResult result) {
         this.localResult = Objects.requireNonNull(result);
     }
 
+    /**
+     * Initialise l'écran Lanterna et lance la boucle d'affichage et de lecture clavier.
+     *
+     * @throws IOException en cas d'erreur d'entrée/sortie sur le terminal
+     */
     public void start() throws IOException {
         DefaultTerminalFactory factory = new DefaultTerminalFactory();
         this.terminal = factory.createTerminal();
@@ -86,6 +132,9 @@ public class TerminalUi {
         }
     }
 
+    /**
+     * Ferme proprement l'écran et le terminal Lanterna.
+     */
     public void close() {
         running = false;
         phase = GamePhase.Finish;
@@ -103,6 +152,11 @@ public class TerminalUi {
         }
     }
 
+    /**
+     * Boucle principale qui redessine l'écran selon la phase courante et traite les événements clavier.
+     *
+     * @throws IOException en cas d'erreur lors du rendu ou de la lecture
+     */
     private void inputAndRenderLoop() throws IOException {
         while (running) {
             switch (phase) {
@@ -113,11 +167,11 @@ public class TerminalUi {
 
             KeyStroke key = screen.pollInput();
             if (key != null && keyHandler != null) {
-                    boolean shouldExit = keyHandler.handleKey(key, phase == GamePhase.Game);
-                    if (shouldExit) {
-                        running = false;
-                        phase = GamePhase.Finish;
-                    }
+                boolean shouldExit = keyHandler.handleKey(key, phase == GamePhase.Game);
+                if (shouldExit) {
+                    running = false;
+                    phase = GamePhase.Finish;
+                }
             } else {
                 try {
                     Thread.sleep(50);
@@ -129,6 +183,11 @@ public class TerminalUi {
         }
     }
 
+    /**
+     * Dessine l'écran d'attente (Lobby) avec l'ASCII art et le message d'attente.
+     *
+     * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
+     */
     private void renderLobbyPhase() throws IOException {
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
@@ -156,6 +215,11 @@ public class TerminalUi {
         screen.refresh();
     }
 
+    /**
+     * Dessine l'en-tête, le texte cible, la saisie du joueur et la barre de statistiques pendant la partie.
+     *
+     * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
+     */
     private void renderGamePhase() throws IOException {
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
@@ -189,6 +253,11 @@ public class TerminalUi {
         screen.refresh();
     }
 
+    /**
+     * Dessine l'écran de fin avec les statistiques et la position du joueur local.
+     *
+     * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
+     */
     private void renderFinishPhase() throws IOException {
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
@@ -218,6 +287,13 @@ public class TerminalUi {
         screen.refresh();
     }
 
+    /**
+     * Dessine la barre d'en-tête commune aux trois écrans.
+     *
+     * @param graphics contexte graphique Lanterna
+     * @param width    largeur du terminal
+     * @param phaseTag libellé de la phase courante
+     */
     private void drawHeader(TextGraphics graphics, int width, String phaseTag) {
         String header = String.format(" DACTILO [%s] | Salle: %s | Joueur: %s | [Echap] Quitter ",
                 phaseTag, roomName, localUsername);
@@ -225,11 +301,25 @@ public class TerminalUi {
         graphics.putString(0, 0, truncate(header, width), SGR.BOLD);
     }
 
+    /**
+     * Retourne la taille courante du terminal en gérant les redimensionnements.
+     *
+     * @return dimensions du terminal
+     */
     private TerminalSize getTerminalSize() {
         TerminalSize size = screen.doResizeIfNecessary();
         return size != null ? size : screen.getTerminalSize();
     }
 
+    /**
+     * Affiche le texte cible en colorant chaque caractère selon son état (vert, rouge ou en attente).
+     *
+     * @param graphics contexte graphique Lanterna
+     * @param startX   colonne de départ d'affichage
+     * @param startY   ligne de départ d'affichage
+     * @param maxWidth largeur maximale disponible
+     * @param maxRows  nombre de lignes maximal disponible
+     */
     private void drawTargetText(TextGraphics graphics, int startX, int startY, int maxWidth, int maxRows) {
         if (maxWidth <= 0 || maxRows <= 0) {
             return;
@@ -263,6 +353,14 @@ public class TerminalUi {
         }
     }
 
+    /**
+     * Affiche les caractères saisis par le joueur en vert si corrects et en rouge si faux.
+     *
+     * @param graphics contexte graphique Lanterna
+     * @param startX   colonne de départ d'affichage de la saisie
+     * @param startY   ligne de départ d'affichage de la saisie
+     * @param maxWidth largeur maximale disponible
+     */
     private void drawTypedInput(TextGraphics graphics, int startX, int startY, int maxWidth) {
         if (maxWidth <= 0) {
             return;
@@ -288,6 +386,13 @@ public class TerminalUi {
         }
     }
 
+    /**
+     * Tronque une chaîne à la longueur maximale en ajoutant une ellipse si nécessaire.
+     *
+     * @param s      chaîne d'entrée
+     * @param maxLen longueur maximale autorisée
+     * @return chaîne tronquée
+     */
     private String truncate(String s, int maxLen) {
         if (s == null || maxLen <= 0) {
             return "";
