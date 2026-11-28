@@ -1,57 +1,120 @@
 package Dactilo.Client;
 
-import Dactilo.Client.ui.TerminalUi;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import Dactilo.Server.*;
 
-import java.io.IOException;
 
-/**
- * Orchestre la logique du jeu et les transitions entre Lobby, Game et Finish.
- */
 class Client {
 
-    public void start(String roomName, String username) {
-        String targetText = "Pack my box with five dozen liquor jugs! 0123456789 @#$%^&*()-_=+[]{}|;:'\",.<>/?~` \\ Quick brown fox jumps over the lazy dog.";
-        TypeCalculator calculator = new TypeCalculator(targetText);
-        TerminalUi ui = new TerminalUi(roomName, username, calculator);
+    private static final String HOST = "localhost";
+    private static final int PORT = 1234;
+    private static final String PSEUDO = "temp"; //todo take in the input of the command to display clearly in the terminal
+    private static Boolean shouldWait = false;
 
-        KeyHandler keyHandler = new KeyHandler(
-                calculator,
-                () -> onInputUpdated(ui, calculator),
-                ui::close
-        );
-        ui.setKeyHandler(keyHandler);
+    public static void main(String args[]) {
+        System.out.println("[Client " + PSEUDO + "] starting with pseudo " + PSEUDO);
+        System.out.println("[Client " + PSEUDO + "] connecting to " + HOST + ":" + PORT);
+        String data;
+        String answer;
 
-        Thread lobbyTimer = new Thread(() -> {
-            try {
-                Thread.sleep(5000);
-                if (ui.getPhase() == TerminalUi.GamePhase.Lobby) {
-                    ui.setPhase(TerminalUi.GamePhase.Game);
-                }
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
+        try (Socket socket = new Socket(HOST, PORT);
+             BufferedReader in =
+                     new BufferedReader(
+                             new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+             BufferedWriter out =
+                     new BufferedWriter(
+                             new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)); ) {
+            System.out.println("[Client " + PSEUDO + "] connected to " + HOST + ":" + PORT);
+            System.out.println(
+                    "[Client "
+                            + PSEUDO
+                            + "] sending textual data to server "
+                            + HOST
+                            + ":"
+                            + PORT
+                            + ": "
+                            + data);
+
+            while (!socket.isClosed()) {
+                Join(out);
+                answer = in.readLine();
+                AnswerToJoin(answer,out,in);
+                Commit(out,getCommitAnswer());
+                answer = in.readLine();
+                int pos = AnswerToCommit(answer,out,in);
+                System.out.println("The position in the classment of the client is " + pos);
             }
-        });
-        lobbyTimer.setDaemon(true);
-        lobbyTimer.start();
 
-        try {
-            ui.start();
-        } catch (IOException e) {
-            throw new RuntimeException("Erreur lors du démarrage de l'interface Lanterna", e);
-        } finally {
-            lobbyTimer.interrupt();
+            System.out.println("[Client " + PSEUDO + "] closing connection");
+        } catch (Exception e) {
+            System.out.println("[Client " + PSEUDO + "] exception: " + e);
         }
     }
 
-    private void onInputUpdated(TerminalUi ui, TypeCalculator calculator) {
-        if (calculator.isFinished()) {
-            ui.setLocalResult(new TerminalUi.LocalResult(
-                    1,
-                    calculator.getWpm(),
-                    calculator.getAccuracyPercent(),
-                    calculator.getElapsedSeconds()
-            ));
-            ui.setPhase(TerminalUi.GamePhase.Finish);
+    private static void AnswerToJoin(String input, BufferedWriter out,BufferedReader in) throws Exception {
+        String[] parsedInput = input.split(" ");
+        switch (parsedInput[0]){
+            case null : throw new Exception("No commands to be interpreted");
+            case "OK":
+                return;
+            case "ERROR":
+                if (parsedInput.length == 1){
+                    throw new Exception("no ERROR code received");
+                } else {
+                    switch (parsedInput[1]){
+                        case null: throw new Exception("no ERROR code received");
+                        case "4":
+                            System.out.println("Failed to find a server, trying again");
+                            Join(out);
+                            input = in.readLine();
+                            AnswerToJoin(input, out, in);
+                        default: throw new Exception("unExpected answer");
+                    }
+                }
+            default:
+                throw new Exception("Unknown command");
         }
+
+    }
+
+    private static int AnswerToCommit(String input, BufferedWriter out,BufferedReader in) throws Exception {
+        String[] parsedInput = input.split(" ");
+        switch (parsedInput[0]){
+            case null : throw new Exception("No commands to be interpreted");
+            case "REDO":
+                Commit(out,getCommitAnswer());
+                input = in.readLine();
+                return AnswerToCommit(input, out, in);
+            case "RESULT":
+                return Integer.parseInt(parsedInput[1]);
+            case "ERROR":
+                switch (parsedInput[1]){
+                    case "2":
+                        Commit(out,getCommitAnswer());
+                        input = in.readLine();
+                        return AnswerToCommit(input, out, in);
+                    case "3":
+                        throw new Exception("Tried to commit while not even in a game or having waited for it to start");
+                }
+            default:
+                throw new Exception("Unknown command");
+        }
+    }
+
+    private static void Commit(BufferedWriter out, String textToCommit) throws IOException {
+        out.write("COMMIT " + textToCommit + "\n");
+        out.flush();
+    }
+    private static void Join(BufferedWriter out) throws IOException {
+        out.write("JOIN\n");
+        out.flush();
+    }
+
+    static String getCommitAnswer(){
+        String answer = "";
+        //todo implement the interaction with the cli
+        return answer;
     }
 }
