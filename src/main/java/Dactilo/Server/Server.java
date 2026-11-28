@@ -115,7 +115,7 @@ public class Server {
                                                 String inputText = data.substring(parsedInput[0].length()+1); //we ignore the command and the space after it
                                                 if (inputText.compareTo(expectedText) == 0){
                                                         SimplePair<String,Boolean> temp = new SimplePair<>("RESULT " + currentGame.getSecond().getPosition(),false);
-                                                        currentGame.getSecond().leaveGame();
+                                                        currentGame.getSecond().leaveGame(currentGame.getFirst());
                                                         currentGame = null;
                                                         return temp;
                                                 } else {
