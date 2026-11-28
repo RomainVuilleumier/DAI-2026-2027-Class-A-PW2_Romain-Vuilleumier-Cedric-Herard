@@ -3,6 +3,9 @@ package Dactilo.Client;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**
+ * Moteur de calcul pour le suivi de frappe, la progression, la précision et les WPM.
+ */
 public class TypeCalculator {
 
     public enum CharStatus {
@@ -51,7 +54,6 @@ public class TypeCalculator {
         if (currentIndex >= targetText.length()) {
             endTimeNanos = System.nanoTime();
         }
-
     }
 
     public void onBackspace() {
