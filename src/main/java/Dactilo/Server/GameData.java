@@ -14,13 +14,13 @@ class GameData {
     private final int  nbSlots;
     private AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
     private AtomicInteger nextFinisherPlace = new AtomicInteger(1);
-    protected CountDownLatch gate;//used to ensure that all threads gets notified by the start of the game
+    protected CyclicBarrier gate;//used to ensure that all threads gets notified by the start of the game
     static Lock mutex;
     final String goal;
 
     protected GameData(String goal, int maxNumberClient) {
         nbSlots = maxNumberClient;
-        gate = new CountDownLatch(nbSlots);
+        gate = new CyclicBarrier(nbSlots);
         clients = new AtomicIntegerArray(new int[maxNumberClient]);
         this.goal = goal;
         games.add(this);
@@ -30,12 +30,24 @@ class GameData {
 
         - game starts if one of the following is true
             - every body is here
-            - a minium of 2 persons are in the game AND there is a time out (like 2 minutes)
+            //- a minium of 2 persons are in the game AND there is a time out (like 2 minutes)
         - when someone gets his result, he leaves the game by putting his current game at null
         - when every body has left OR if a timeout is called (like 5 minutes) the game kicks every body (set to null) and puts itself back in the queue (or create a new game with a new goal) //todo needs a pointer to every player to kick them
 
      */
 
+    void leaveGame(int clientId){
+        int remainingClients = nbClients.decrementAndGet();
+        clients.set(clientId,0);
+        if (hasStarted.get() && remainingClients == 0){
+            resetGame();
+        }
+    }
+
+    void resetGame(){
+        gate.reset();
+        games.add(this);
+    }
 
     /**
      *
@@ -44,8 +56,9 @@ class GameData {
      */
     private int clientComes() throws Exception {
         nbClients.incrementAndGet();
-        if (nbClients.get() == nbSlots){
+        if (nbClients.get() == nbSlots && !hasStarted.get()){
             games.remove(this);
+            hasStarted.set(true);
         }
         return reserveFreeSlot();
     }

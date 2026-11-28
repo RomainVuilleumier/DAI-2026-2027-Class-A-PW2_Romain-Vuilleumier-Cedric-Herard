@@ -61,7 +61,6 @@ public class Server {
 
 
                                 while (!socket.isClosed()){
-                                        //read inputs
                                         String input = in.readLine(); //we disigned the whole system so that the \n is the end of the message
                                         System.out.println("[Server] received textual data from client: " + input);
                                         if (socket.isClosed()) continue;
@@ -70,11 +69,10 @@ public class Server {
                                         if (socket.isClosed()) continue;
                                         out.write(output.getFirst() + "\n");
                                         out.flush();
-                                        if (output.getSecond()){
+                                        if (output.getSecond()){ //joined a game
                                                 System.out.println("[Server] waits for the game to start");
                                                 try {
-                                                        currentGame.getSecond().gate.countDown();
-                                                        currentGame.getSecond().gate.wait();
+                                                        currentGame.getSecond().gate.await();
                                                         System.out.println("[Server] game started");
                                                         if (socket.isClosed()) continue;
                                                         out.write("START " + currentGame.getSecond().goal + "\n");
@@ -116,7 +114,10 @@ public class Server {
                                         }else {
                                                 String inputText = data.substring(parsedInput[0].length()+1); //we ignore the command and the space after it
                                                 if (inputText.compareTo(expectedText) == 0){
-                                                        return new SimplePair<>("RESULT " + currentGame.getSecond().getPosition(),false);
+                                                        SimplePair<String,Boolean> temp = new SimplePair<>("RESULT " + currentGame.getSecond().getPosition(),false);
+                                                        currentGame.getSecond().leaveGame();
+                                                        currentGame = null;
+                                                        return temp;
                                                 } else {
                                                         return new SimplePair<>("REDO",false);
                                                 }
