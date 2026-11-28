@@ -9,11 +9,11 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 class GameData {
     static ConcurrentLinkedQueue<GameData> games = new ConcurrentLinkedQueue<>();
-    private AtomicBoolean hasStarted = new AtomicBoolean(false);
-    private AtomicInteger nbClients = new AtomicInteger(0);
+    private final AtomicBoolean hasStarted = new AtomicBoolean(false);
+    private final AtomicInteger nbClients = new AtomicInteger(0);
     private final int  nbSlots;
-    private AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
-    private AtomicInteger nextFinisherPlace = new AtomicInteger(1);
+    private final AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
+    private final AtomicInteger nextFinisherPlace = new AtomicInteger(1);
     protected CyclicBarrier gate;//used to ensure that all threads gets notified by the start of the game
     static ReentrantLock mutex = new ReentrantLock();
     final String goal;

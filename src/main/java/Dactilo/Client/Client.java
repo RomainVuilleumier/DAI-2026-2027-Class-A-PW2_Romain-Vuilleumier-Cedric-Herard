@@ -12,10 +12,9 @@ class Client {
     private static final int PORT = 1234;
     private static final String PSEUDO = "temp"; //todo take in the input of the command to display clearly in the terminal
 
-    public static void main(String args[]) {
+    static void main() {
         System.out.println("[Client " + PSEUDO + "] starting with pseudo " + PSEUDO);
         System.out.println("[Client " + PSEUDO + "] connecting to " + HOST + ":" + PORT);
-        String data;
         String answer;
 
         try (Socket socket = new Socket(HOST, PORT);
@@ -24,7 +23,7 @@ class Client {
                              new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
              BufferedWriter out =
                      new BufferedWriter(
-                             new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)); ) {
+                             new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
             System.out.println("[Client " + PSEUDO + "] connected to " + HOST + ":" + PORT);
 
             while (!socket.isClosed()) {

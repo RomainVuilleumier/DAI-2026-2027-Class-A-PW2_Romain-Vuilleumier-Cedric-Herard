@@ -17,7 +17,7 @@ public class Server {
         private static final String WRONG_MOMENT = "ERROR 3";
         private static final String COMMAND_FAILED = "ERROR 4";
 
-        public static void main(String[] args) {
+        static void main() {
                 try (ServerSocket serverSocket = new ServerSocket(PORT);
                      ExecutorService executorClient = Executors.newFixedThreadPool(MAX_NB_LOBBIES*MAX_NB_CLIENT_IN_A_GAME)) {
                         System.out.println("[Server] starting with id ");
