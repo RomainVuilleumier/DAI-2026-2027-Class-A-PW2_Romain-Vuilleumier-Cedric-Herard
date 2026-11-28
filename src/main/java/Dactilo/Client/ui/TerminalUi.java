@@ -13,16 +13,20 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Interface terminale Lanterna gérant les écrans Lobby, Partie et Résultats.
  */
 public class TerminalUi {
+
+    private static final String[] LOBBY_ASCII_ART = {
+            "  ____             _   _ _          ____ _   _ ____   ____  __  ____     __",
+            " |  _ \\  __ _  ___| |_(_) | ___    / ___| | | |  _ \\ |  _ \\|  \\/  \\ \\   / /",
+            " | | | |/ _` |/ __| __| | |/ _ \\  | |   | |_| | | | || |_) | |\\/| |\\ \\ / / ",
+            " | |_| | (_| | (__| |_| | | (_) | | |___|  _  | |_| ||  _ <| |  | | \\ V /  ",
+            " |____/ \\__,_|\\___|\\__|_|_|\\___/   \\____|_| |_|____(_)_| \\_\\_|  |_|  \\_/   "
+    };
 
     /**
      * Callbacks déclenchés par l'interface vers la couche applicative / réseau.
@@ -54,14 +58,14 @@ public class TerminalUi {
     }
 
     /**
-     * Représente le résultat final d'un joueur affiché sur l'écran de fin.
+     * Résultat final et classement du joueur local envoyés par le serveur.
      *
-     * @param username        pseudo du joueur
+     * @param position        position finale du joueur (1 = premier)
      * @param wpm             vitesse finale en mots par minute
      * @param accuracyPercent précision finale en pourcentage
      * @param elapsedSeconds  temps total en secondes
      */
-    public record PlayerResult(String username, double wpm, double accuracyPercent, double elapsedSeconds) {
+    public record LocalResult(int position, double wpm, double accuracyPercent, double elapsedSeconds) {
     }
 
     private final String roomName;
@@ -70,10 +74,8 @@ public class TerminalUi {
     private final UiCallbacks callbacks;
     private final StringBuilder typedInput = new StringBuilder();
 
-    private final List<String> lobbyPlayers = new CopyOnWriteArrayList<>();
-    private final List<PlayerResult> finalResults = new CopyOnWriteArrayList<>();
-
     private volatile GamePhase phase = GamePhase.Lobby;
+    private volatile LocalResult localResult;
     private volatile boolean running = false;
     private Terminal terminal;
     private Screen screen;
@@ -91,7 +93,6 @@ public class TerminalUi {
         this.localUsername = Objects.requireNonNull(localUsername);
         this.calculator = Objects.requireNonNull(calculator);
         this.callbacks = Objects.requireNonNull(callbacks);
-        this.lobbyPlayers.add(localUsername);
     }
 
     /**
@@ -104,30 +105,12 @@ public class TerminalUi {
     }
 
     /**
-     * Remplace la liste des joueurs affichée dans le lobby.
+     * Enregistre le résultat final et la position du joueur local reçus du serveur.
      *
-     * @param players liste des pseudos présents dans la salle
+     * @param result statistiques finales et rang du joueur local
      */
-    public void setLobbyPlayers(List<String> players) {
-        lobbyPlayers.clear();
-        if (players != null) {
-            lobbyPlayers.addAll(players);
-        }
-        if (!lobbyPlayers.contains(localUsername)) {
-            lobbyPlayers.add(localUsername);
-        }
-    }
-
-    /**
-     * Remplace la liste des résultats affichée à la fin de la partie.
-     *
-     * @param results liste des résultats des joueurs
-     */
-    public void setResults(List<PlayerResult> results) {
-        finalResults.clear();
-        if (results != null) {
-            finalResults.addAll(results);
-        }
+    public void setLocalResult(LocalResult result) {
+        this.localResult = Objects.requireNonNull(result);
     }
 
     /**
@@ -155,6 +138,7 @@ public class TerminalUi {
      */
     public void close() {
         running = false;
+        phase = GamePhase.Finish;
         try {
             if (screen != null) {
                 screen.close();
@@ -204,6 +188,7 @@ public class TerminalUi {
     private void handleKey(KeyStroke key) {
         if (key.getKeyType() == KeyType.EOF || key.getKeyType() == KeyType.Escape) {
             running = false;
+            phase = GamePhase.Finish;
             callbacks.onExitRequested();
             return;
         }
@@ -220,7 +205,7 @@ public class TerminalUi {
     }
 
     /**
-     * Traite la touche Backspace en supprimant le dernier caractère saisi.
+     * Traitement de la touche Backspace.
      */
     private void handleBackspace() {
         if (calculator.getCurrentIndex() > 0 && !typedInput.isEmpty()) {
@@ -231,7 +216,7 @@ public class TerminalUi {
     }
 
     /**
-     * Traite un caractère UTF-8 tapé par le joueur.
+     * Traitement d'un caractère UTF-8 tapé.
      *
      * @param c caractère saisi
      */
@@ -244,7 +229,7 @@ public class TerminalUi {
     }
 
     /**
-     * Récupère les métriques courantes et notifie-les callbacks.
+     * Récupère les métriques courantes et notifie les callbacks.
      */
     private void notifyLocalStats() {
         double progress = calculator.getProgressPercent();
@@ -253,21 +238,17 @@ public class TerminalUi {
         boolean finished = calculator.isFinished();
         callbacks.onLocalStatsUpdated(progress, wpm, accuracy, finished);
 
-        if (finished) {
-            if (finalResults.stream().noneMatch(r -> r.username().equals(localUsername))) {
-                finalResults.add(new PlayerResult(localUsername, wpm, accuracy, calculator.getElapsedSeconds()));
-            }
-            phase = GamePhase.Finish;
+        if (finished && localResult == null) {
+            localResult = new LocalResult(1, wpm, accuracy, calculator.getElapsedSeconds());
         }
     }
 
     /**
-     * Dessine l'écran d'attente (Lobby) avec la liste des joueurs connectés.
+     * Dessine l'écran d'attente (Lobby) avec l'ASCII art et un message d'attente.
      *
      * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
      */
     private void renderLobbyPhase() throws IOException {
-
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
         int height = size.getRows();
@@ -278,23 +259,18 @@ public class TerminalUi {
 
         drawHeader(graphics, width, "LOBBY");
 
-        graphics.setForegroundColor(TextColor.ANSI.YELLOW);
-        graphics.putString(2, 2, "Joueurs dans la salle (" + lobbyPlayers.size() + ") :", SGR.BOLD);
-
-        int row = 4;
-        for (String player : lobbyPlayers) {
+        graphics.setForegroundColor(TextColor.ANSI.CYAN_BRIGHT);
+        int row = 2;
+        for (String line : LOBBY_ASCII_ART) {
             if (row >= height - 4) {
                 break;
             }
-            boolean isLocal = player.equals(localUsername);
-            graphics.setForegroundColor(isLocal ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE);
-            String label = isLocal ? " - " + player + " (vous)" : " - " + player;
-            graphics.putString(2, row++, truncate(label, width - 4));
+            graphics.putString(2, row++, truncate(line, width - 4), SGR.BOLD);
         }
 
-        graphics.setForegroundColor(TextColor.ANSI.WHITE_BRIGHT);
-        graphics.putString(2, Math.max(row + 1, height - 3),
-                truncate("En attente du lancement de la partie... [Echap] Quitter", width - 4));
+        graphics.setForegroundColor(TextColor.ANSI.YELLOW);
+        graphics.putString(2, Math.min(row + 2, height - 3),
+                truncate("En attente du début de la partie...", width - 4), SGR.BOLD);
 
         screen.refresh();
     }
@@ -305,7 +281,6 @@ public class TerminalUi {
      * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
      */
     private void renderGamePhase() throws IOException {
-
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
         int height = size.getRows();
@@ -325,23 +300,25 @@ public class TerminalUi {
         drawTypedInput(graphics, 2, 10, width - 4);
 
         int statsRow = Math.max(12, height - 3);
-        String stats = String.format(" WPM: %.1f | Précision: %.1f%% | Progression: %.1f%% | Temps: %.1fs ",
+        String stats = calculator.isFinished()
+                ? String.format(" Terminé ! WPM: %.1f | Précision: %.1f%% | Temps: %.1fs ",
+                calculator.getWpm(), calculator.getAccuracyPercent(), calculator.getElapsedSeconds())
+                : String.format(" WPM: %.1f | Précision: %.1f%% | Progression: %.1f%% | Temps: %.1fs ",
                 calculator.getWpm(), calculator.getAccuracyPercent(),
                 calculator.getProgressPercent(), calculator.getElapsedSeconds());
 
-        graphics.setForegroundColor(TextColor.ANSI.WHITE_BRIGHT);
+        graphics.setForegroundColor(calculator.isFinished() ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE_BRIGHT);
         graphics.putString(0, statsRow, truncate(stats, width), SGR.BOLD);
 
         screen.refresh();
     }
 
     /**
-     * Dessine l'écran de fin de partie avec le classement et les résultats des joueurs.
+     * Dessine l'écran de fin avec uniquement les statistiques et la position du joueur local.
      *
      * @throws IOException en cas d'erreur lors du rafraîchissement de l'écran
      */
     private void renderFinishPhase() throws IOException {
-
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
         int height = size.getRows();
@@ -352,30 +329,20 @@ public class TerminalUi {
 
         drawHeader(graphics, width, "RÉSULTATS");
 
+        LocalResult result = localResult != null
+                ? localResult
+                : new LocalResult(1, calculator.getWpm(), calculator.getAccuracyPercent(), calculator.getElapsedSeconds());
+
         graphics.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
-        graphics.putString(2, 2, "Classement final :", SGR.BOLD);
+        graphics.putString(2, 2, "Partie terminée — Tes statistiques :", SGR.BOLD);
 
-        List<PlayerResult> sorted = new ArrayList<>(finalResults);
-        sorted.sort(Comparator
-                .comparingDouble(PlayerResult::wpm).reversed()
-                .thenComparingDouble(PlayerResult::accuracyPercent).reversed());
+        graphics.setForegroundColor(TextColor.ANSI.CYAN_BRIGHT);
+        graphics.putString(2, 4, truncate("Position : #" + result.position(), width - 4), SGR.BOLD);
 
-        int row = 4;
-        int rank = 1;
-        for (PlayerResult r : sorted) {
-            if (row >= height - 4) {
-                break;
-            }
-            boolean isLocal = r.username().equals(localUsername);
-            graphics.setForegroundColor(isLocal ? TextColor.ANSI.CYAN_BRIGHT : TextColor.ANSI.WHITE);
-            String line = String.format(" #%d %-16s | %5.1f WPM | Précision : %5.1f%% | Temps : %4.1fs",
-                    rank++, truncate(r.username(), 16), r.wpm(), r.accuracyPercent(), r.elapsedSeconds());
-            graphics.putString(2, row++, truncate(line, width - 4));
-        }
-
-        graphics.setForegroundColor(TextColor.ANSI.YELLOW);
-        graphics.putString(2, Math.max(row + 1, height - 3),
-                truncate("Partie terminée ! Appuyez sur [Echap] pour quitter.", width - 4), SGR.BOLD);
+        graphics.setForegroundColor(TextColor.ANSI.WHITE);
+        graphics.putString(2, 6, truncate(String.format("WPM : %.1f", result.wpm()), width - 4));
+        graphics.putString(2, 7, truncate(String.format("Précision : %.1f%%", result.accuracyPercent()), width - 4));
+        graphics.putString(2, 8, truncate(String.format("Temps : %.1fs", result.elapsedSeconds()), width - 4));
 
         screen.refresh();
     }
