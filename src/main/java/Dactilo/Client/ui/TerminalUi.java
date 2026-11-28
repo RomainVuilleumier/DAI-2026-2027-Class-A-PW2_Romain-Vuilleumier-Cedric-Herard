@@ -1,7 +1,7 @@
 package Dactilo.Client.ui;
 
-import Dactilo.Client.GameLogic;
 import Dactilo.Client.KeyHandler;
+import Dactilo.Client.TypeCalculator;
 import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.TextColor;
@@ -16,9 +16,9 @@ import java.io.IOException;
 import java.util.Objects;
 
 /**
- * Interface terminale Lanterna dédiée à l'affichage des écrans Lobby, Course et Résultats.
+ * Interface terminale Lanterna dédiée au rendu des écrans Lobby, Partie et Résultats.
  */
-public class TerminalUi implements KeyHandler.KeyListener {
+public class TerminalUi {
 
     private static final String[] LOBBY_ASCII_ART = {
             "  ____             _   _ _          ____ _   _ ____   ____  __  ____     __",
@@ -28,32 +28,47 @@ public class TerminalUi implements KeyHandler.KeyListener {
             " |____/ \\__,_|\\___|\\__|_|_|\\___/   \\____|_| |_|____(_)_| \\_\\_|  |_|  \\_/   "
     };
 
+    public enum GamePhase {
+        Lobby,
+        Game,
+        Finish
+    }
+
+    public record LocalResult(int position, double wpm, double accuracyPercent, double elapsedSeconds) {
+    }
+
     private final String roomName;
     private final String localUsername;
-    private final GameLogic gameLogic;
-    private final KeyHandler keyHandler;
+    private final TypeCalculator calculator;
 
+    private volatile GamePhase phase = GamePhase.Lobby;
+    private volatile LocalResult localResult;
     private volatile boolean running = false;
+
+    private KeyHandler keyHandler;
     private Terminal terminal;
     private Screen screen;
 
-    public TerminalUi(String roomName, String localUsername, GameLogic gameLogic) {
-        this.roomName = Objects.requireNonNull(roomName, "roomName must not be null");
-        this.localUsername = Objects.requireNonNull(localUsername, "localUsername must not be null");
-        this.gameLogic = Objects.requireNonNull(gameLogic, "gameLogic must not be null");
-        this.keyHandler = new KeyHandler(this);
+    public TerminalUi(String roomName, String localUsername, TypeCalculator calculator) {
+        this.roomName = Objects.requireNonNull(roomName);
+        this.localUsername = Objects.requireNonNull(localUsername);
+        this.calculator = Objects.requireNonNull(calculator);
     }
 
-    public void setPhase(GameLogic.GamePhase newPhase) {
-        gameLogic.setPhase(newPhase);
+    public void setKeyHandler(KeyHandler keyHandler) {
+        this.keyHandler = Objects.requireNonNull(keyHandler);
     }
 
-    public void setLocalResult(GameLogic.LocalResult result) {
-        gameLogic.setLocalResult(result);
+    public void setPhase(GamePhase newPhase) {
+        this.phase = Objects.requireNonNull(newPhase);
     }
 
-    public String getTypedText() {
-        return gameLogic.getTypedText();
+    public GamePhase getPhase() {
+        return phase;
+    }
+
+    public void setLocalResult(LocalResult result) {
+        this.localResult = Objects.requireNonNull(result);
     }
 
     public void start() throws IOException {
@@ -73,7 +88,7 @@ public class TerminalUi implements KeyHandler.KeyListener {
 
     public void close() {
         running = false;
-        gameLogic.setPhase(GameLogic.GamePhase.Finish);
+        phase = GamePhase.Finish;
         try {
             if (screen != null) {
                 screen.close();
@@ -90,15 +105,19 @@ public class TerminalUi implements KeyHandler.KeyListener {
 
     private void inputAndRenderLoop() throws IOException {
         while (running) {
-            switch (gameLogic.getPhase()) {
+            switch (phase) {
                 case Lobby -> renderLobbyPhase();
                 case Game -> renderGamePhase();
                 case Finish -> renderFinishPhase();
             }
 
             KeyStroke key = screen.pollInput();
-            if (key != null) {
-                keyHandler.handle(key);
+            if (key != null && keyHandler != null) {
+                    boolean shouldExit = keyHandler.handleKey(key, phase == GamePhase.Game);
+                    if (shouldExit) {
+                        running = false;
+                        phase = GamePhase.Finish;
+                    }
             } else {
                 try {
                     Thread.sleep(50);
@@ -108,22 +127,6 @@ public class TerminalUi implements KeyHandler.KeyListener {
                 }
             }
         }
-    }
-
-    @Override
-    public void onExitKey() {
-        running = false;
-        gameLogic.handleExit();
-    }
-
-    @Override
-    public void onBackspaceKey() {
-        gameLogic.handleBackspace();
-    }
-
-    @Override
-    public void onCharacterKey(char c) {
-        gameLogic.handleCharacterTyped(c);
     }
 
     private void renderLobbyPhase() throws IOException {
@@ -172,16 +175,15 @@ public class TerminalUi implements KeyHandler.KeyListener {
         graphics.putString(2, 8, "Ta saisie :");
         drawTypedInput(graphics, 2, 10, width - 4);
 
-        boolean finished = gameLogic.isFinished();
         int statsRow = Math.max(12, height - 3);
-        String stats = finished
+        String stats = calculator.isFinished()
                 ? String.format(" Terminé ! WPM: %.1f | Précision: %.1f%% | Temps: %.1fs ",
-                gameLogic.getWpm(), gameLogic.getAccuracyPercent(), gameLogic.getElapsedSeconds())
+                calculator.getWpm(), calculator.getAccuracyPercent(), calculator.getElapsedSeconds())
                 : String.format(" WPM: %.1f | Précision: %.1f%% | Progression: %.1f%% | Temps: %.1fs ",
-                gameLogic.getWpm(), gameLogic.getAccuracyPercent(),
-                gameLogic.getProgressPercent(), gameLogic.getElapsedSeconds());
+                calculator.getWpm(), calculator.getAccuracyPercent(),
+                calculator.getProgressPercent(), calculator.getElapsedSeconds());
 
-        graphics.setForegroundColor(finished ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE_BRIGHT);
+        graphics.setForegroundColor(calculator.isFinished() ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.WHITE_BRIGHT);
         graphics.putString(0, statsRow, truncate(stats, width), SGR.BOLD);
 
         screen.refresh();
@@ -190,6 +192,7 @@ public class TerminalUi implements KeyHandler.KeyListener {
     private void renderFinishPhase() throws IOException {
         TerminalSize size = getTerminalSize();
         int width = size.getColumns();
+        int height = size.getRows();
 
         TextGraphics graphics = screen.newTextGraphics();
         graphics.setBackgroundColor(TextColor.ANSI.BLACK);
@@ -197,7 +200,9 @@ public class TerminalUi implements KeyHandler.KeyListener {
 
         drawHeader(graphics, width, "RÉSULTATS");
 
-        GameLogic.LocalResult result = gameLogic.getLocalResultOrDefault();
+        LocalResult result = localResult != null
+                ? localResult
+                : new LocalResult(1, calculator.getWpm(), calculator.getAccuracyPercent(), calculator.getElapsedSeconds());
 
         graphics.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
         graphics.putString(2, 2, "Partie terminée — Tes statistiques :", SGR.BOLD);
@@ -230,7 +235,7 @@ public class TerminalUi implements KeyHandler.KeyListener {
             return;
         }
 
-        String text = gameLogic.getTargetText();
+        String text = calculator.getTargetText();
         int x = startX;
         int y = startY;
 
@@ -244,7 +249,7 @@ public class TerminalUi implements KeyHandler.KeyListener {
             }
 
             char ch = text.charAt(i);
-            GameLogic.CharStatus status = gameLogic.getStatusAt(i);
+            TypeCalculator.CharStatus status = calculator.getStatusAt(i);
 
             TextColor fg = switch (status) {
                 case CORRECT -> TextColor.ANSI.GREEN;
@@ -263,21 +268,21 @@ public class TerminalUi implements KeyHandler.KeyListener {
             return;
         }
 
-        String typed = gameLogic.getTypedText();
+        String typed = keyHandler != null ? keyHandler.getTypedText() : "";
         int limit = Math.min(typed.length(), maxWidth);
 
         for (int i = 0; i < limit; i++) {
             char ch = typed.charAt(i);
-            GameLogic.CharStatus status = i < gameLogic.getTargetText().length()
-                    ? gameLogic.getStatusAt(i)
-                    : GameLogic.CharStatus.WRONG;
-            graphics.setForegroundColor(status == GameLogic.CharStatus.CORRECT
+            TypeCalculator.CharStatus status = i < calculator.getTargetText().length()
+                    ? calculator.getStatusAt(i)
+                    : TypeCalculator.CharStatus.WRONG;
+            graphics.setForegroundColor(status == TypeCalculator.CharStatus.CORRECT
                     ? TextColor.ANSI.GREEN
                     : TextColor.ANSI.RED);
             graphics.putString(startX + i, startY, String.valueOf(ch));
         }
 
-        if (!gameLogic.isFinished() && limit < maxWidth) {
+        if (!calculator.isFinished() && limit < maxWidth) {
             graphics.setForegroundColor(TextColor.ANSI.WHITE);
             graphics.putString(startX + limit, startY, " ", SGR.REVERSE);
         }
