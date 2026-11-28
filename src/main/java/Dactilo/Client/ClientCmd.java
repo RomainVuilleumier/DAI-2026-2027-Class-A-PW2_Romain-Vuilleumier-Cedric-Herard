@@ -1,6 +1,5 @@
 package Dactilo.Client;
 
-import Dactilo.config.NetworkConfig;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "client", description = "Démarre un client joueur avec interface Lanterna")
@@ -20,7 +19,5 @@ public class ClientCmd implements Runnable {
 
     @Override
     public void run() {
-        Client client = new Client();
-        client.start(host,username);
     }
 }
