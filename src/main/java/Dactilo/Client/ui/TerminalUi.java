@@ -370,7 +370,14 @@ public class TerminalUi {
         TerminalSize size = screen.doResizeIfNecessary();
         return size != null ? size : screen.getTerminalSize();
     }
-
+    /**
+     * Retourne le texte actuellement saisi par le joueur.
+     *
+     * @return texte tapé dans la zone de saisie
+     */
+    public String getTypedText() {
+        return typedInput.toString();
+    }
     /**
      * Affiche le texte cible en colorant chaque caractère selon son état (vert, rouge ou en attente).
      *
