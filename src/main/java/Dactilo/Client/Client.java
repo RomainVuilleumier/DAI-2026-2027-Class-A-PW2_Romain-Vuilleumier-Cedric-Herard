@@ -11,6 +11,7 @@ class Client {
     private static final String HOST = "localhost";
     private static final int PORT = 1234;
     private static final String PSEUDO = "temp"; //todo take in the input of the command to display clearly in the terminal
+    private static Boolean shouldWait = false;
 
     public static void main(String args[]) {
         System.out.println("[Client " + PSEUDO + "] starting with pseudo " + PSEUDO);
@@ -54,7 +55,14 @@ class Client {
         }
     }
 
-    private void commandInterpreter(String[] parsedInput) throws Exception {//todo implement the cases
+    /**
+     *
+     * @param parsedInput
+     * @param shouldWait
+     * @return
+     * @throws Exception
+     */
+    private String commandInterpreter(String[] parsedInput, Boolean shouldWait) throws Exception {//todo implement the cases
         switch (parsedInput[0]){
             case null : throw new Exception("No commands to be interpreted");
             case "REDO":

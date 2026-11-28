@@ -36,19 +36,6 @@ public class Server {
                 }
         }
 
-        static class GameHandler implements Runnable{
-                private GameData data;
-
-                public GameHandler(GameData data) {
-                        this.data = data;
-                }
-
-                @Override
-                public void run(){
-                        //game management
-                }
-        }
-
         static class ClientHandler implements Runnable {
                 private final Socket socket;
                 private SimplePair<Integer,GameData> currentGame;
@@ -72,44 +59,70 @@ public class Server {
                                                 + ":"
                                                 + socket.getPort());
 
-                                System.out.println(
-                                        "[Server] received textual data from client: " + in.readLine());
 
-                                try {
-                                        System.out.println(
-                                                "[Server] sleeping for 10 seconds to simulate a long operation");
-                                        Thread.sleep(10000);
-                                } catch (InterruptedException e) {
-                                        Thread.currentThread().interrupt();
+                                while (!socket.isClosed()){
+                                        //read inputs
+                                        String input = in.readLine(); //we disigned the whole system so that the \n is the end of the message
+                                        System.out.println("[Server] received textual data from client: " + input);
+                                        if (socket.isClosed()) continue;
+                                        SimplePair<String,Boolean> output = commandInterpreter(input,currentGame.getSecond().goal);
+                                        System.out.println("[Server] sends it's reply to the client: " + output.getFirst());
+                                        if (socket.isClosed()) continue;
+                                        out.write(output.getFirst() + "\n");
+                                        out.flush();
+                                        if (output.getSecond()){
+                                                System.out.println("[Server] waits for the game to start");
+                                                try {
+                                                        currentGame.getSecond().gate.countDown();
+                                                        currentGame.getSecond().gate.wait();
+                                                        System.out.println("[Server] game started");
+                                                        if (socket.isClosed()) continue;
+                                                        out.write("START " + currentGame.getSecond().goal + "\n");
+                                                        out.flush();
+                                                } catch (InterruptedException e){
+                                                        System.out.println("Stopped waiting without the game starting");
+                                                        Thread.currentThread().interrupt();
+                                                }
+                                        }
                                 }
 
-                                System.out.println(
-                                        "[Server] sending response to client: " + TEXTUAL_DATA);
-
-                                out.write(TEXTUAL_DATA + "\n");
-                                out.flush();
-
                                 System.out.println("[Server] closing connection");
-                        } catch (IOException e) {
+                        } catch (Exception e) {
                                 System.out.println("[Server] exception: " + e);
                         }
                 }
-                private String commandInterpreter(String[] parsedInput) throws Exception { //todo implement the cases
+                private SimplePair<String,Boolean> commandInterpreter(String data, String expectedText) throws Exception {
+                        String[] parsedInput = data.split(" ");
                         switch (parsedInput[0]){
                                 case null : throw new Exception("No commands to be interpreted");
                                 case "JOIN":
                                         if (parsedInput.length != 1){
-                                                return NOT_A_COMMAND;
+                                                return new SimplePair<>(WRONG_FORMAT,false);
                                         }
-                                        else if (currentGame == null){
-                                                currentGame = GameData.findAndJoinGame();
-                                                if(currentGame == null){
-                                                        return COMMAND_FAILED;
-                                                }
-                                                return "OK";
+                                        else if (currentGame != null){
+                                                return new SimplePair<>(WRONG_MOMENT,false);
                                         }
+                                        currentGame = GameData.findAndJoinGame();
+                                        if(currentGame == null){
+                                                return new SimplePair<>(COMMAND_FAILED,false);
+                                        }
+                                        return new SimplePair<>("OK",true);
                                 case "COMMIT":
+                                        if (parsedInput.length == 1){
+                                                return new SimplePair<>(WRONG_FORMAT,false);
+                                        }
+                                        else if (currentGame == null || !currentGame.getSecond().Started()){
+                                                return new SimplePair<>(WRONG_MOMENT,false);
+                                        }else {
+                                                String inputText = data.substring(parsedInput[0].length()+1); //we ignore the command and the space after it
+                                                if (inputText.compareTo(expectedText) == 0){
+                                                        return new SimplePair<>("RESULT " + currentGame.getSecond().getPosition(),false);
+                                                } else {
+                                                        return new SimplePair<>("REDO",false);
+                                                }
+                                        }
                                 default:
+                                        return new SimplePair<>(NOT_A_COMMAND,false);
                         }
                 }
         }

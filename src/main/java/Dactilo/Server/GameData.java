@@ -9,16 +9,18 @@ import java.util.concurrent.locks.Lock;
  */
 class GameData {
     static ConcurrentLinkedQueue<GameData> games = new ConcurrentLinkedQueue<>();
-    AtomicBoolean hasStarted = new AtomicBoolean(false);
-    AtomicInteger nbClients = new AtomicInteger(0);
+    private AtomicBoolean hasStarted = new AtomicBoolean(false);
+    private AtomicInteger nbClients = new AtomicInteger(0);
     private final int  nbSlots;
-    AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
-    AtomicInteger nextFinisherPlace = new AtomicInteger(1);
+    private AtomicIntegerArray clients; //used as a Boolean atomic array because it does not seem to exist
+    private AtomicInteger nextFinisherPlace = new AtomicInteger(1);
+    protected CountDownLatch gate;//used to ensure that all threads gets notified by the start of the game
     static Lock mutex;
     final String goal;
 
     protected GameData(String goal, int maxNumberClient) {
         nbSlots = maxNumberClient;
+        gate = new CountDownLatch(nbSlots);
         clients = new AtomicIntegerArray(new int[maxNumberClient]);
         this.goal = goal;
         games.add(this);
@@ -79,6 +81,10 @@ class GameData {
         int index = result.clientComes();
         mutex.unlock();
         return new SimplePair<>(index,result);
+     }
+
+     protected int getPosition(){
+         return nextFinisherPlace.getAndIncrement();
      }
 
     /**
